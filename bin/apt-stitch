@@ -1,0 +1,96 @@
+#!/bin/bash
+
+if [ "$EUID" -ne 0 ]; then
+    echo "Please run as root or with root privelleges."
+    exit 1
+fi
+
+if [ -z "$1" ]; then
+    echo "Usage: sudo apt-stitch <package>"
+    exit 1
+fi
+read -p "folder name? " packagename
+if ls /tmp | grep /tmp/${packagename}; then
+	echo "tmp already contains $packagename, removing!"
+	rm -rf /tmp/${packagename}
+	echo "making tmpdir"
+fi
+yuck=$1
+tmpdir="/tmp/${packagename}/"
+controldir="${tmpdir}DEBIAN/"
+dircontrol() {
+    mkdir -p "$tmpdir" "$controldir"
+    touch "${controldir}control"
+    cd "$tmpdir" || exit
+    dirs=(
+        "bin"
+	"debpkgs"
+    )
+    for dir in "${dirs[@]}"; do
+        mkdir -p "$dir"
+        echo "Created $dir in $tmpdir"
+    done
+    cd .. || exit
+}
+aptdl() {
+    apt-get --download-only install "${yuck}"
+    if [ $? -ne 0 ]; then
+        echo "Failed to download $yuck. Exiting..."
+        rm /var/cache/apt/archives/*.deb
+        exit 1
+    fi
+}
+
+extract() {
+    echo "Copying from the APT archives to the StitchPKG folder" 
+    cp /var/cache/apt/archives/*.deb "/tmp/${packagename}/debpkgs/"
+    echo "complete!"
+}
+
+wcntrl() {
+    read -p "Version: " versi
+    read -p "Section: " secti
+    read -p "Priority: " prior
+    read -p "Architecture: " archi
+    read -p "Maintainer: " maint
+    descr="apt-stitched fetch of $yuck"
+    cat <<EOF >"${controldir}control"
+Package: ${packagename}
+Version: ${versi}
+Section: ${secti}
+Priority: ${prior}
+Architecture: ${archi}
+Maintainer: ${maint}
+Description: ${descr}
+EOF
+}
+postinstallwriter() {
+    touch "${tmpdir}bin/postinstaller"
+    echo -e "#!/bin/bash \n    dpkg -i /debpkgs/*.deb \n    rm /debpkgs/*.deb /bin/postinstaller /outputs/*.deb" > ${tmpdir}bin/postinstaller
+    chmod 755 ${tmpdir}bin/postinstaller
+    cat "${tmpdir}bin/postinstaller"
+}
+builder() {
+    cd /tmp || exit
+    chmod 755 ${controldir}control
+    dpkg-deb --build "${packagename}" /outputs
+    if [ $? -ne 0 ]; then
+        echo "Failed to build .deb package."
+        exit 1
+    fi
+}
+
+cleaner() {
+    rm -rf /tmp/"${packagename}"
+    ls /tmp
+}
+
+# Function call order
+dircontrol
+aptdl
+extract
+wcntrl
+postinstallwriter
+builder
+cleaner
+echo "after installation, please run the command postinstaller as sudo!"

@@ -1,0 +1,37 @@
+#!/bin/bash
+selector() {
+if ls "$(pwd)" | grep -q '^control$'; then
+	read -p "found a control file, use it?(y/n)" choice
+		if [[ "$choice" =~ ^([Yy])$ ]]; then
+			filepath=$(pwd)/control
+		elif [[ "$choice" =~ ^([Nn])$ ]]; then
+			read -p "Enter path to control file: " filepath
+		else
+			echo "invalid choice!"
+			selector
+		fi
+else
+	read -p "No control file found in $(pwd), please specify a path: " filepath
+fi
+}
+
+qdebcont() {
+    read -p "Package: " packa
+    read -p "Version: " versi
+    read -p "Section: " secti
+    read -p "Priority: " prior
+    read -p "Architecture: " archi
+    read -p "Maintainer: " maint
+    read -p "Description: " descr
+    cat <<EOF >"${filepath}"
+Package: ${packa}
+Version: ${versi}
+Section: ${secti}
+Priority: ${prior}
+Architecture: ${archi}
+Maintainer: ${maint}
+Description: ${descr}
+EOF
+}
+selector
+qdebcont

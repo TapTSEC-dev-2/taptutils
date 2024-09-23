@@ -1,0 +1,32 @@
+#!/bin/bash
+
+organize_files() {
+    local directory="$1"
+    if [ ! -d "$directory" ]; then
+        echo "Error: Directory '$directory' not found."
+        exit 1
+    fi
+    cd "$directory" || exit 1
+    for file in *; do
+        if [ -f "$file" ]; then
+            extension="${file##*.}"
+            extension="${extension,,}"
+            if [ "$extension" = "$file" ]; then
+                # No extension, move to 'no_extension' directory
+                if [ ! -d "no_extension" ]; then
+                    mkdir "no_extension"
+                fi
+                mv "$file" "no_extension/$file"
+            else
+                if [ ! -d "$extension" ]; then
+                    mkdir "$extension"
+                fi
+                mv "$file" "$extension/$file"
+            fi
+        fi
+    done
+    echo "sorted :3"
+}
+
+read -p "Enter a directory path: " directory
+organize_files "$directory"
